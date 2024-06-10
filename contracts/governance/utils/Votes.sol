@@ -161,17 +161,35 @@ abstract contract Votes is Context, EIP712, Nonces, IERC5805 {
     }
 
     /**
-     * @dev Delegate all of `account`'s voting units to `delegatee`.
-     *
-     * Emits events {IVotes-DelegateChanged} and {IVotes-DelegateVotesChanged}.
-     */
-    function _delegate(address account, address delegatee) internal virtual {
-        address oldDelegate = delegates(account);
-        _delegatee[account] = delegatee;
+	 * @dev Delegates votes from `account` to `delegatee`.
+	 *
+	 * Emits events {IVotes-DelegateChanged} and {IVotes-DelegateVotesChanged}.
+	 *
+	 * For the OSS Project (only): Additional work on the
+	 * delegation checks, which is not featured in the
+	 * branch that was submitted as Pull Request.
+	 */
+	function _delegate(address account, address delegatee) internal virtual {
+		address oldDelegate = delegates(account);
+		if (oldDelegate == delegatee) {
+			return; // Exit early if already delegated to the same address
+		}
 
-        emit DelegateChanged(account, oldDelegate, delegatee);
-        _moveDelegateVotes(oldDelegate, delegatee, _getVotingUnits(account));
-    }
+		_delegatee[account] = delegatee;
+
+		if (oldDelegate != address(0)){
+			uint256 oldDelegateVotes =_delegateCheckpoints[oldDelegate].latest();
+			uint256 newDelegateVotes = oldDelegateVotes.sub(_getVotingUnits(account));
+			_delegateCheckpoints[oldDelegate].push(clock(), newDelegateVotes);
+			emit DelegateVotesChanged(oldDelegate, oldDelegateVotes, newDelegateVotes);
+		}
+		
+		uint256 newDelegateVotes = _delegateCheckpoints[delegatee].latest().add(_getVotingUnits(account));
+		_delegateCheckpoints[delegatee].push(clock(), newDelegateVotes);
+		
+		emit DelegateChanged(account, oldDelegate, delegatee);
+		emit DelegateVotesChanged(delegatee, newDelegateVotes.sub(_getVotingUnits(account)), newDelegateVotes);
+	}
 
     /**
      * @dev Transfers, mints, or burns voting units. To register a mint, `from` should be zero. To register a burn, `to`
