@@ -48,10 +48,19 @@ library MerkleProof {
      * hash matches the root of the tree. When processing the proof, the pairs
      * of leafs & pre-images are assumed to be sorted.
      */
+    
+    /**
+     * For the OSS Project (only): We introduce an `unchecked` block to avoid
+     * the extra gas cost associated with the default overflow checking in
+     * Solidity 0.8 and later versions. Given that i is bounded by proof.length,
+     * we can safely use `unchecked` in this case.
+     */
     function processProof(bytes32[] memory proof, bytes32 leaf) internal pure returns (bytes32) {
         bytes32 computedHash = leaf;
-        for (uint256 i = 0; i < proof.length; i++) {
-            computedHash = Hashes.commutativeKeccak256(computedHash, proof[i]);
+        unchecked {
+            for (uint256 i = 0; i < proof.length; i++) {
+                computedHash = Hashes.commutativeKeccak256(computedHash, proof[i]);
+            }
         }
         return computedHash;
     }
